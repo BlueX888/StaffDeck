@@ -52,4 +52,4 @@ def test_source_database_is_in_installation_data_directory(tmp_path, monkeypatch
     secret = os.environ['APP_SECRET']
     bootstrap.configure_environment()
     assert os.environ['APP_SECRET'] == secret
-    assert (tmp_path / 'installation-secrets.json').stat().st_mode & 0o777 == 0o600
+    assert (tmp_path / '.installation-seed').stat().st_mode & 0o777 == 0o600

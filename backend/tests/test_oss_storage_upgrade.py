@@ -106,3 +106,20 @@ def test_installed_wheel_uses_manifest_location_as_product_root(tmp_path, monkey
     from staffdeck_harness.distribution import bootstrap
     monkeypatch.setenv('STAFFDECK_DISTRIBUTION_MANIFEST',str(tmp_path/'app/distribution/manifest.json'))
     assert bootstrap.distribution_root()==tmp_path/'app'
+
+
+def test_external_signing_key_is_not_duplicated_into_a_plaintext_cache(tmp_path,monkeypatch):
+    from staffdeck_harness.distribution import bootstrap
+    data=tmp_path/'data';data.mkdir()
+    monkeypatch.setenv('ULTRARAG_DATA_DIR',str(data))
+    monkeypatch.setenv('APP_SECRET','external-signing-key-for-this-fixture')
+    monkeypatch.setenv('STAFFDECK_INITIAL_ADMIN_PASSWORD','initial-password-fixture')
+    monkeypatch.setattr(bootstrap,'load_manifest',lambda:{
+        'assembly':{'security_profile':'OSS_LOCAL'},'installation':{},'version':'0.6.0'})
+    bootstrap.configure_environment()
+    assert not (data/'installation-secrets.json').exists()
+    assert not (data/'.installation-seed').exists()
+    for path in data.rglob('*'):
+        if path.is_file():
+            assert b'external-signing-key-for-this-fixture' not in path.read_bytes()
+            assert b'initial-password-fixture' not in path.read_bytes()

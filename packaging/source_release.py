@@ -38,7 +38,7 @@ def validate(root=ROOT, names=None):
     for name in names:
         path = Path(name)
         if (path.parts[0] in PRIVATE_ROOTS or name in PRIVATE_FILES
-                or path.suffix in STATE_SUFFIXES
+                or path.suffix in STATE_SUFFIXES or path.name in {'.installation-seed','installation-secrets.json'}
                 or any(part in {'node_modules', '.venv', '__pycache__', '.dsh-home-test'} for part in path.parts)
                 or any(part.startswith('.env') and part != '.env.example' for part in path.parts)):
             raise ValueError('Non-public or live-state path in OSS checkout: ' + name)

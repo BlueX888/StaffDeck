@@ -66,6 +66,22 @@ def _backup(path: Path, data: Path, version: str) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _installation_material(data: Path, *, create: bool = False) -> str | None:
+    path=data/'.installation-seed'
+    if path.is_symlink():raise RuntimeError('安装签名材料不能是符号链接。')
+    if not path.exists() and create:
+        try:
+            fd=os.open(path,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+        except FileExistsError:
+            pass
+        else:
+            with os.fdopen(fd,'wb') as output:output.write(os.urandom(32))
+    if not path.exists():return None
+    material=path.read_bytes()
+    if len(material)!=32:raise RuntimeError('安装签名材料损坏；请恢复原数据目录。')
+    return hashlib.sha256(material).hexdigest()
+
+
 def resolve_storage(root: Path, data: Path, manifest: dict, *, frozen: bool = False) -> dict:
     explicit_data = bool(os.environ.get('ULTRARAG_DATA_DIR'))
     dotenv = Path(os.environ.get('ULTRARAG_DOTENV') or data / '.env')
@@ -93,10 +109,11 @@ def resolve_storage(root: Path, data: Path, manifest: dict, *, frozen: bool = Fa
     if path:
         # Relative .env URLs keep the legacy backend-relative meaning, independent of cwd.
         url = 'sqlite:///' + str(path)
-    secret = os.environ.get('APP_SECRET') or values.get('APP_SECRET') or stored.get('app_secret')
+    secret = (os.environ.get('APP_SECRET') or values.get('APP_SECRET') or stored.get('app_secret')
+              or _installation_material(data))
     if path and path.is_file():
         secret = secret or LEGACY_APP_SECRET
         _check_key(path, secret)
         _backup(path, data, manifest.get('version', 'upgrade'))
-    secret = secret or secrets.token_urlsafe(48)
+    secret = secret or _installation_material(data,create=True)
     return {'database_url': url, 'app_secret': secret, 'dotenv': str(dotenv)}

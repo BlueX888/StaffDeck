@@ -30,8 +30,8 @@ def test_fresh_oss_admin_and_five_owned_employees_are_initialized_once(tmp_path,
     monkeypatch.setenv('ULTRARAG_DOTENV', str(tmp_path / 'missing.env'))
     monkeypatch.delenv('STAFFDECK_INITIAL_ADMIN_PASSWORD', raising=False)
     configure_environment()
-    secrets = json.loads((tmp_path / 'data/installation-secrets.json').read_text())
-    assert secrets['admin_password'] == 'admin' and len(secrets['app_secret']) >= 32
+    assert len((tmp_path / 'data/.installation-seed').read_bytes()) == 32
+    assert not (tmp_path / 'data/installation-secrets.json').exists()
     engine = create_engine('sqlite://')
     SQLModel.metadata.create_all(engine)
     with Session(engine) as db:

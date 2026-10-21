@@ -1,9 +1,8 @@
 """Install-time defaults, never a live-database clone or an upgrade overwrite."""
 import json
 import os
-from pathlib import Path
-import secrets
 import sys
+from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 
@@ -48,15 +47,11 @@ def configure_environment():
     if manifest is None:
         return
     from app.paths import user_data_dir
+
     from .storage import resolve_storage
     data = user_data_dir()
     storage = resolve_storage(distribution_root(), data, manifest,
                               frozen=bool(getattr(sys, 'frozen', False)))
-    secret_path = data / 'installation-secrets.json'
-    local_oss = (manifest['assembly'].get('security_profile') == 'OSS_LOCAL'
-                 and not manifest['installation'].get('control_auth_provider'))
-    write_once(secret_path, {'app_secret': storage['app_secret'],
-                            'admin_password': 'admin' if local_oss else secrets.token_urlsafe(24)})
     os.environ.setdefault('ULTRARAG_DOTENV', storage['dotenv'])
     os.environ.setdefault('APP_SECRET', storage['app_secret'])
     os.environ['DATABASE_URL'] = storage['database_url']
@@ -115,9 +110,11 @@ def configure_environment():
 
 def initialize_defaults(db, manifest=None):
     from sqlmodel import select
+
     from app.db import models as M
-    from app.security.auth import hash_password
     from app.paths import user_data_dir
+    from app.security.auth import hash_password
+
     from .resources import RESOURCE_MODELS
     manifest = manifest or load_manifest()
     if manifest is None:
@@ -145,7 +142,8 @@ def initialize_defaults(db, manifest=None):
     db.add(M.Tenant(id=tenant_id, name=manifest['name']))
     db.add(M.PersonaConfig(tenant_id=tenant_id, system_prompt=(manifest.get('resources') or {}).get('persona_prompt', '')))
     if not external_auth:
-        password = os.environ.get('STAFFDECK_INITIAL_ADMIN_PASSWORD') or json.loads(secrets_file.read_text())['admin_password']
+        legacy = json.loads(secrets_file.read_text()) if secrets_file.is_file() else {}
+        password = os.environ.get('STAFFDECK_INITIAL_ADMIN_PASSWORD') or legacy.get('admin_password') or 'admin'
         db.add(M.User(id=admin_id, tenant_id=tenant_id, username='admin', display_name='Administrator',
                       role='admin', password_hash=hash_password(password)))
     from .defaults import default_resource_graph, default_staff
