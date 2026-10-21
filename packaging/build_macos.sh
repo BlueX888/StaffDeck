@@ -49,7 +49,7 @@ verify_bundle_arch() {
         ;;
     esac
     checked=$((checked + 1))
-  done < <(find "$app" -type f -print0)
+  done < <(python3 packaging/macho_candidates.py "$app")
   if [ "$checked" -eq 0 ]; then
     echo "架构校验失败: $app 中未找到 Mach-O 文件" >&2
     return 1
@@ -71,28 +71,12 @@ sign_app_bundle() {
   xattr -cr "$app" 2>/dev/null || true
   if [ -n "$MAC_SIGN_ID" ]; then
     echo "使用 Developer ID 签名"
-    python3 - "$app" <<'PY' | while IFS= read -r item; do
-import subprocess
-import sys
-from pathlib import Path
-
-app = Path(sys.argv[1])
-items = []
-for path in app.rglob("*"):
-    if not path.is_file() or path.is_symlink():
+    while IFS= read -r -d '' item; do
+      if ! file -b "$item" | grep -q "Mach-O"; then
         continue
-    try:
-        desc = subprocess.check_output(["file", str(path)], text=True, stderr=subprocess.DEVNULL)
-    except Exception:
-        continue
-    if "Mach-O" in desc:
-        items.append(path)
-
-for path in sorted(items, key=lambda p: len(p.parts), reverse=True):
-    print(path)
-PY
+      fi
       sign_code "$item"
-    done
+    done < <(python3 packaging/macho_candidates.py "$app")
   else
     echo "未配置 MAC_SIGN_ID，使用 ad-hoc 签名"
     find "$app/Contents/Frameworks" -type f -name "*.dylib" 2>/dev/null \

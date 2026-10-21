@@ -11,6 +11,8 @@
 - 原 `release` 工作流继续接受 `v*` 或数字开头的 tag，以及 `workflow_dispatch`。
 - 发布前先通过同一套 OSS 检查，再分别构建 macOS arm64/x86_64、Windows x64、Linux x64。
 - Node 构建工具和随安装包提供的 Node 均为 22.19.0，满足 Harness 的运行时要求。
+- macOS 先读取文件头筛选原生代码候选，再执行完整的 `file` / `lipo` 架构校验，
+  避免为 Node 依赖中的每个普通资源启动子进程；签名仍处理所有真实 Mach-O 文件。
 - 每个平台先执行 `prepare.py --without-backend` 构建前端和运行时，原生脚本再安装
   后端及本地 SDK，使用 `SKIP_FRONTEND=1` 复用已验证的前端产物。
 - 原生包同时携带桌面入口和 `staffdeck-cli`。发布检查会执行 CLI 帮助、员工列表及登录验收。

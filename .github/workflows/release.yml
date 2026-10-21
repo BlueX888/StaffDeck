@@ -44,6 +44,7 @@ jobs:
           - os: windows-latest
             script: pwsh packaging/build_windows.ps1
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
 
