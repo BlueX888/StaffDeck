@@ -27,35 +27,53 @@ def main():
         for key in ('APP_SECRET','DATABASE_URL','STAFFDECK_API_KEY','STAFFDECK_INITIAL_ADMIN_PASSWORD'):
             env.pop(key, None)
         with (data/'launcher.log').open('w') as log:
-            process = subprocess.Popen([str(args.server.resolve()), 'serve'], env=env,
-                                       stdout=log, stderr=subprocess.STDOUT)
-            try:
+            def start_server():
+                child = subprocess.Popen([str(args.server.resolve()), 'serve'], env=env,
+                                         stdout=log, stderr=subprocess.STDOUT)
                 for _ in range(180):
-                    if process.poll() is not None:
+                    if child.poll() is not None:
                         raise RuntimeError('Native OSS server exited before health check')
                     try:
-                        with urllib.request.urlopen(env['STAFFDECK_BASE_URL']+'/api/health', timeout=2) as response:
-                            if json.load(response).get('app')=='StaffDeck':break
-                    except (OSError, ValueError):pass
+                        with urllib.request.urlopen(env['STAFFDECK_BASE_URL']+'/api/health',timeout=2) as response:
+                            if json.load(response).get('app')=='StaffDeck':return child
+                    except (OSError,ValueError):pass
                     time.sleep(1)
-                else:raise RuntimeError('Native OSS server health timed out')
+                child.terminate();child.wait(timeout=20)
+                raise RuntimeError('Native OSS server health timed out')
+
+            def stop_server(child):
+                child.terminate()
+                try:child.wait(timeout=20)
+                except subprocess.TimeoutExpired:child.kill();child.wait()
+
+            process = None
+            try:
+                process = start_server()
                 cli = str(args.cli.resolve())
                 subprocess.run([cli,'--help'],env=env,check=True,stdout=subprocess.DEVNULL)
                 subprocess.run([cli,'login','--password-stdin'],input='admin\n',text=True,env=env,check=True)
                 out = subprocess.check_output([cli,'agent','list'],env=env,text=True,encoding='utf-8')
                 for name in ('IT','人事','行政','财务','法务'):assert name in out,name
+                stop_server(process)
+                process = start_server()
+                # The existing CLI credential must survive restart; its server-side
+                # verifier uses the persisted application signing material.
                 subprocess.run([cli,'auth','status'],env=env,check=True)
+                assert len((data/'.installation-seed').read_bytes()) == 32
+                assert not (data/'installation-secrets.json').exists()
                 subprocess.run([cli,'logout'],env=env,check=True)
-                print('Native OSS login, default employees and CLI acceptance passed.')
+                print('OSS login, defaults, restart persistence and CLI acceptance passed.')
             except Exception:
                 log.flush()
                 # Do not print settings, installation secrets or profile credentials.
-                print('Native smoke failed; inspect isolated launcher logs on the runner.')
+                print('Native smoke failed. Launcher diagnostic tail:')
+                for line in (data/'launcher.log').read_text(errors='replace').splitlines()[-60:]:
+                    if not any(word in line.lower() for word in ('secret','password','authorization','token','api_key')):
+                        print(line)
                 raise
             finally:
-                process.terminate()
-                try:process.wait(timeout=20)
-                except subprocess.TimeoutExpired:process.kill();process.wait()
+                if process is not None and process.poll() is None:
+                    stop_server(process)
 
 
 if __name__=='__main__':main()

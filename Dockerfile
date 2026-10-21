@@ -15,6 +15,7 @@ COPY --from=build /app /app
 RUN pip install --no-cache-dir ./backend && python packaging/distribution/install_dependencies.py
 RUN useradd --uid 10001 --create-home staffdeck && mkdir /data && chown staffdeck:staffdeck /data
 USER staffdeck
+ENV STAFFDECK_DISTRIBUTION_MANIFEST=/app/distribution/manifest.json STAFFDECK_INSTALL_ROOT=/app
 ENV ULTRARAG_DATA_DIR=/data ULTRARAG_HOST=0.0.0.0 ULTRARAG_PORT=5173 STAFFDECK_HEADLESS=true
 VOLUME ["/data"]
 EXPOSE 5173
