@@ -37,6 +37,7 @@ def test_resources_and_links_are_skipped_but_nested_code_is_retained(tmp_path):
     assert macho.candidates(tmp_path) == [nested]
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX file-name fixture')
 def test_null_output_keeps_newlines_in_paths_and_signs_deepest_first(tmp_path):
     parent = tmp_path / 'top\nlevel'
     child = tmp_path / 'nested/binary'
