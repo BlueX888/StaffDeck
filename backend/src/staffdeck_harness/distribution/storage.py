@@ -7,6 +7,7 @@ import json
 import os
 import secrets
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -26,7 +27,7 @@ def sqlite_path(url: str, base: Path) -> Path | None:
 def _check_key(path: Path, secret: str) -> None:
     """Read only; reject the wrong key before touching installation state."""
     key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
-    with sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as db:
+    with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)) as db:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         # Known historical credential columns; never execute identifiers from database contents.
         for table, column in (('model_configs', 'api_key_encrypted'),
@@ -56,8 +57,10 @@ def _backup(path: Path, data: Path, version: str) -> None:
     fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     os.close(fd)
     try:
-        with (sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as source,
-              sqlite3.connect(temporary) as backup):
+        # sqlite3's connection context only commits/rolls back; it does not close
+        # the handle. Windows requires both handles closed before atomic rename.
+        with (closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)) as source,
+              closing(sqlite3.connect(temporary)) as backup):
             source.backup(backup)
             if backup.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
                 raise RuntimeError('数据库备份校验失败，已停止升级。')

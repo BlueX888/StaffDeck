@@ -28,20 +28,25 @@ def main():
             env.pop(key, None)
         with (data/'launcher.log').open('w') as log:
             def start_server():
+                print('OSS smoke: starting server', flush=True)
                 child = subprocess.Popen([str(args.server.resolve()), 'serve'], env=env,
                                          stdout=log, stderr=subprocess.STDOUT)
-                for _ in range(180):
+                deadline = time.monotonic() + 300
+                while time.monotonic() < deadline:
                     if child.poll() is not None:
                         raise RuntimeError('Native OSS server exited before health check')
                     try:
                         with urllib.request.urlopen(env['STAFFDECK_BASE_URL']+'/api/health',timeout=2) as response:
-                            if json.load(response).get('app')=='StaffDeck':return child
+                            if json.load(response).get('app')=='StaffDeck':
+                                print('OSS smoke: server ready', flush=True)
+                                return child
                     except (OSError,ValueError):pass
                     time.sleep(1)
                 child.terminate();child.wait(timeout=20)
                 raise RuntimeError('Native OSS server health timed out')
 
             def stop_server(child):
+                print('OSS smoke: stopping server', flush=True)
                 child.terminate()
                 try:child.wait(timeout=20)
                 except subprocess.TimeoutExpired:child.kill();child.wait()
@@ -50,30 +55,39 @@ def main():
             try:
                 process = start_server()
                 cli = str(args.cli.resolve())
-                subprocess.run([cli,'--help'],env=env,check=True,stdout=subprocess.DEVNULL)
-                subprocess.run([cli,'login','--password-stdin'],input='admin\n',text=True,env=env,check=True)
-                out = subprocess.check_output([cli,'agent','list'],env=env,text=True,encoding='utf-8')
+                print('OSS smoke: CLI help', flush=True)
+                subprocess.run([cli,'--help'],env=env,check=True,stdout=subprocess.DEVNULL,timeout=90)
+                print('OSS smoke: CLI login', flush=True)
+                subprocess.run([cli,'login','--password-stdin'],input='admin\n',text=True,env=env,check=True,timeout=90)
+                print('OSS smoke: CLI employee list', flush=True)
+                out = subprocess.check_output([cli,'agent','list'],env=env,text=True,encoding='utf-8',timeout=90)
                 for name in ('IT','人事','行政','财务','法务'):assert name in out,name
                 stop_server(process)
                 process = start_server()
                 # The existing CLI credential must survive restart; its server-side
                 # verifier uses the persisted application signing material.
-                subprocess.run([cli,'auth','status'],env=env,check=True)
+                print('OSS smoke: saved credential after restart', flush=True)
+                subprocess.run([cli,'auth','status'],env=env,check=True,timeout=90)
                 assert len((data/'.installation-seed').read_bytes()) == 32
                 assert not (data/'installation-secrets.json').exists()
-                subprocess.run([cli,'logout'],env=env,check=True)
-                print('OSS login, defaults, restart persistence and CLI acceptance passed.')
+                print('OSS smoke: CLI logout', flush=True)
+                subprocess.run([cli,'logout'],env=env,check=True,timeout=90)
+                print('OSS login, defaults, restart persistence and CLI acceptance passed.',flush=True)
             except Exception:
                 log.flush()
                 # Do not print settings, installation secrets or profile credentials.
-                print('Native smoke failed. Launcher diagnostic tail:')
-                for line in (data/'launcher.log').read_text(errors='replace').splitlines()[-60:]:
-                    if not any(word in line.lower() for word in ('secret','password','authorization','token','api_key')):
-                        print(line)
+                for diagnostic in (data/'launcher.log',data/'logs/staffdeck.log'):
+                    if not diagnostic.is_file():continue
+                    print('Native smoke failed. Diagnostic tail: '+diagnostic.name,flush=True)
+                    for line in diagnostic.read_text(encoding='utf-8',errors='replace').splitlines()[-60:]:
+                        if not any(word in line.lower() for word in ('secret','password','authorization','token','api_key')):
+                            print(line,flush=True)
                 raise
             finally:
                 if process is not None and process.poll() is None:
                     stop_server(process)
+            print('OSS smoke: removing isolated test data',flush=True)
+    print('OSS smoke: cleanup complete',flush=True)
 
 
 if __name__=='__main__':main()

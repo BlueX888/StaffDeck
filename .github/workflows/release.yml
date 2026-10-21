@@ -146,6 +146,7 @@ jobs:
         run: ${{ matrix.script }}
 
       - name: Native OSS login and CLI acceptance
+        timeout-minutes: 18
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "macOS" ]]; then

@@ -52,6 +52,39 @@ def test_explicit_isolated_install_never_adopts_another_source_database(tmp_path
     assert not (data / 'backups').exists()
 
 
+def test_upgrade_closes_database_handles_before_publishing_backup(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from staffdeck_harness.distribution import storage
+
+    data = tmp_path / 'data'; data.mkdir()
+    old = data / 'skill_agent_loop.db'
+    token = legacy_db(old, LEGACY_APP_SECRET)
+    connect, replace = sqlite3.connect, Path.replace
+    opened = []
+
+    def tracked_connect(*args, **kwargs):
+        db = connect(*args, **kwargs)
+        opened.append(db)
+        return db
+
+    def require_closed_handles(path, target):
+        if path.suffix == '.tmp':
+            assert len(opened) == 3  # credential check, source, backup
+            for db in opened:
+                with pytest.raises(sqlite3.ProgrammingError, match='closed'):
+                    db.execute('SELECT 1')
+        return replace(path, target)
+
+    monkeypatch.setattr(storage.sqlite3, 'connect', tracked_connect)
+    monkeypatch.setattr(Path, 'replace', require_closed_handles)
+    resolve_storage(tmp_path, data, {'version': '0.6.0'}, frozen=True)
+    backup = next((data / 'backups').glob('*.db'))
+    from contextlib import closing
+    with closing(connect(backup)) as db:
+        assert db.execute('SELECT api_key_encrypted FROM model_configs').fetchone()[0] == token
+
+
 def test_frozen_upgrade_preserves_legacy_default_key(tmp_path):
     data = tmp_path / 'user-data'; data.mkdir()
     legacy_db(data / 'skill_agent_loop.db', LEGACY_APP_SECRET)
