@@ -135,3 +135,7 @@ These limits define when cross-session references are a poor fit. They are curre
 None.
 
 </details>
+
+### Input scan safety
+
+Inline reference parsing scans disjoint label spans and indexed URI boundaries. Repeated malformed opening markers do not cause regex backtracking; the URI and label wire format is unchanged.

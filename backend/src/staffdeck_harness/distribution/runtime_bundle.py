@@ -18,14 +18,14 @@ def _relative(value):
 
 
 def runtime_path(archive: Path, data: Path) -> Path:
-    expected=archive.with_suffix(archive.suffix+'.sha256').read_text().strip()
+    expected=archive.with_suffix(archive.suffix+'.sha256').read_text(encoding='utf-8').strip()
     if not re.fullmatch(r'[a-f0-9]{64}',expected):raise ValueError('Invalid runtime checksum')
     return data/'engine-runtime'/expected[:24]
 
 
 def install_runtime(archive: Path, data: Path) -> Path:
     # The application instance lock is held by the caller during startup.
-    target=runtime_path(archive,data);expected=archive.with_suffix(archive.suffix+'.sha256').read_text().strip()
+    target=runtime_path(archive,data);expected=archive.with_suffix(archive.suffix+'.sha256').read_text(encoding='utf-8').strip()
     cache=target.parent;cache.mkdir(parents=True,exist_ok=True)
     if (target/'.complete').is_file() and (target/'apps/cli/lib/bin.js').is_file():return target
     if hashlib.sha256(archive.read_bytes()).hexdigest()!=expected:

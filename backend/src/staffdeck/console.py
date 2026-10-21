@@ -67,7 +67,7 @@ def _parser():
     root = Path(os.environ.get('STAFFDECK_INSTALL_ROOT') or
                 (sys._MEIPASS if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[3]))
     manifest = root / 'distribution/manifest.json'
-    version = json.loads(manifest.read_text()).get('version', '0.6.0') if manifest.is_file() else '0.6.0'
+    version = json.loads(manifest.read_text(encoding='utf-8')).get('version', '0.6.0') if manifest.is_file() else '0.6.0'
     parser.add_argument('--version', action='version', version='StaffDeck CLI ' + version)
     groups = parser.add_subparsers(dest='command')
     chat = groups.add_parser('chat', help='直接开始交互对话，或发送一句话')
@@ -229,7 +229,7 @@ def _auth(args):
         root = Path(os.environ.get('STAFFDECK_INSTALL_ROOT') or
                     (sys._MEIPASS if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[3]))
         manifest = root / 'distribution/manifest.json'
-        args.tenant_id = (json.loads(manifest.read_text())['installation']['tenant_id']
+        args.tenant_id = (json.loads(manifest.read_text(encoding='utf-8'))['installation']['tenant_id']
                           if manifest.is_file() else 'tenant_demo')
     if args.action == 'login' and not args.base_url:
         # Read only: honor the local application's saved port without changing
@@ -242,7 +242,7 @@ def _auth(args):
         current = Path(data) / 'service.json'
         network = Path(data) / 'network.json'
         state = current if current.is_file() else network
-        config = json.loads(state.read_text()) if state.is_file() else {}
+        config = json.loads(state.read_text(encoding='utf-8')) if state.is_file() else {}
         args.base_url = f"http://127.0.0.1:{int(config.get('port', 5173))}"
     output = io.StringIO()
     with redirect_stdout(output):
@@ -258,6 +258,10 @@ def _auth(args):
 
 
 def main(argv=None):
+    if os.name == 'nt':
+        for stream in (sys.stdout, sys.stderr):
+            if stream is not None and hasattr(stream, 'reconfigure'):
+                stream.reconfigure(encoding='utf-8')
     raw, index = _normalise(sys.argv[1:] if argv is None else argv)
     # Machine output is an explicit projection of the existing SDK CLI.
     if '--output' in raw:

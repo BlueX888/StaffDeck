@@ -5,7 +5,7 @@ import json
 def default_staff():
     from app.db.staffdeck_seed import FIXTURE_PATH
 
-    agents = {row['name']: row for row in json.loads(FIXTURE_PATH.read_text())['agent_profiles']}
+    agents = {row['name']: row for row in json.loads(FIXTURE_PATH.read_text(encoding='utf-8'))['agent_profiles']}
     return [{'key': key, 'name': name, 'description': agents[name]['description'],
              'persona_prompt': agents[name].get('persona_prompt') or '',
              'harness_max_actions': 32}

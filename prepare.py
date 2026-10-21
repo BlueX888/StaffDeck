@@ -49,7 +49,7 @@ def package_manager(root):
 
 
 def prepare(*, backend=True, cli_link=True):
-    manifest = json.loads((ROOT / 'distribution/manifest.json').read_text())
+    manifest = json.loads((ROOT / 'distribution/manifest.json').read_text(encoding='utf-8'))
     env = dict(os.environ, VITE_TENANT_ID=manifest['installation']['tenant_id'], VITE_API_BASE_URL='',
                RAYON_NUM_THREADS='2', UV_THREADPOOL_SIZE='2', NODE_OPTIONS='--max-old-space-size=2048')
     selected_ui = 'frontend-business' if manifest['assembly'].get('ui_variant') == 'business' else 'frontend-enterprise'

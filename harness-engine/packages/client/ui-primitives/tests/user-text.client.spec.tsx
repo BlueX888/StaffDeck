@@ -82,3 +82,9 @@ describe('projectUserText', () => {
     expect(host.textContent).toBe('纯文本，无引用')
   })
 })
+
+it('projects long punctuation tokens and unterminated wire prefixes without backtracking', () => {
+  const punctuation = '!'.repeat(50000) + 'x'
+  expect(project('@' + punctuation).textContent).toBe(punctuation)
+  expect(project('@['.repeat(50000)).querySelectorAll('[data-ref-chip]').length).toBe(1)
+})

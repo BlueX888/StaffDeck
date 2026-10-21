@@ -42,7 +42,7 @@ import {
   type PlatformResourceAccent,
   type PlatformStat,
 } from '@/components/openPlatform';
-import { isTeamScope, readEmployeeScope } from '@/lib/agent-scope-storage';
+import { persistSharedAgentScope, isTeamScope, readEmployeeScope } from '@/lib/agent-scope-storage';
 
 const ENTERPRISE_AGENT_STORAGE_KEY = 'ultrarag_enterprise_agent_scope';
 
@@ -319,7 +319,7 @@ export default function OpenPlatformPage({
       return false;
     }
     if (targetEmployee.id !== agentId) {
-      window.localStorage.setItem(ENTERPRISE_AGENT_STORAGE_KEY, targetEmployee.id);
+      persistSharedAgentScope(targetEmployee.id);
       window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', { detail: { agentId: targetEmployee.id } }));
       setAgentId(targetEmployee.id);
     }
@@ -343,7 +343,7 @@ export default function OpenPlatformPage({
         }
         : item
     )));
-    window.localStorage.setItem(ENTERPRISE_AGENT_STORAGE_KEY, agent.id);
+    persistSharedAgentScope(agent.id);
     window.dispatchEvent(new Event('ultrarag-enterprise-agent-scope-refresh'));
     window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', { detail: { agentId: agent.id } }));
     setAgentId(agent.id);
@@ -549,7 +549,7 @@ export default function OpenPlatformPage({
               notify.error('暂时无法找到开放广场');
               return;
             }
-            window.localStorage.setItem(ENTERPRISE_AGENT_STORAGE_KEY, overall.id);
+            persistSharedAgentScope(overall.id);
             window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', {
               detail: { agentId: overall.id },
             }));

@@ -12,9 +12,6 @@ import type { ReactNode } from 'react'
 import { ReferenceIcon } from './ReferenceIcon.tsx'
 import css from './user-text.module.css'
 
-/** The wire form a session chip serializes to; label is the display text. */
-const SESSION_WIRE_RE = /@\[([^\]\n]+)\]\(dsh-session:[^)\s]+\)/gu
-
 interface DecorationRange {
   readonly start: number
   readonly end: number
@@ -33,16 +30,31 @@ interface DecorationRange {
  */
 export function projectUserText(text: string, sessionLabels: readonly string[]): ReactNode {
   const ranges: DecorationRange[] = []
-  SESSION_WIRE_RE.lastIndex = 0
-  let wire: RegExpExecArray | null
-  while ((wire = SESSION_WIRE_RE.exec(text)) !== null) {
-    ranges.push({
-      start: wire.index,
-      end: wire.index + wire[0].length,
-      label: wire[0],
-      kind: 'session',
-      display: wire[1] as string, // non-optional capture in SESSION_WIRE_RE
-    })
+  const labelStops: number[] = []
+  const uriStops: number[] = []
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === ']' || text.charCodeAt(i) === 10) labelStops.push(i)
+    if (/[\s)]/u.test(text[i]!)) uriStops.push(i)
+  }
+  labelStops.push(text.length); uriStops.push(text.length)
+  let labelIndex = 0
+  let uriIndex = 0
+  let search = 0
+  while (search < text.length) {
+    const start = text.indexOf('@[', search)
+    if (start < 0) break
+    while (labelStops[labelIndex]! < start + 2) labelIndex++
+    const close = labelStops[labelIndex]!
+    if (close === text.length) break
+    search = close + 1
+    if (text[close] !== ']' || close === start + 2 || !text.startsWith('(dsh-session:', close + 1)) continue
+    const uriStart = close + 2
+    while (uriStops[uriIndex]! < uriStart) uriIndex++
+    const end = uriStops[uriIndex]!
+    if (text[end] !== ')' || end === uriStart + 'dsh-session:'.length) continue
+    ranges.push({ start, end: end + 1, label: text.slice(start, end + 1),
+                  kind: 'session', display: text.slice(start + 2, close) })
+    search = end + 1
   }
   for (const rawLabel of [...new Set(sessionLabels)].sort((a, b) => b.length - a.length)) {
     const label = `@${rawLabel}`
@@ -57,9 +69,11 @@ export function projectUserText(text: string, sessionLabels: readonly string[]):
   while ((m = re.exec(text)) !== null) {
     const tokenStart = m.index + (m[1] as string).length // (^|\s) captures '' at line start
     const rawLabel = m[2] as string // non-optional alternation capture
-    const label = rawLabel.startsWith('@"')
-      ? rawLabel
-      : rawLabel.replace(/[.,;:!?，。；：！？]+$/gu, '')
+    let end = rawLabel.length
+    if (!rawLabel.startsWith('@"')) {
+      while (end > 0 && /[.,;:!?，。；：！？]/u.test(rawLabel[end - 1]!)) end--
+    }
+    const label = rawLabel.slice(0, end)
     if (label.length <= 1) continue
     ranges.push({ start: tokenStart, end: tokenStart + label.length, label, kind: 'plain' })
   }

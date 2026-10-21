@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import platform
 import posixpath
 import shutil
 import stat
@@ -15,6 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 MARKER = '.staffdeck-harness-bundle'
 
 
+def _other_prebuild(path: Path) -> bool:
+    if path.parent.name != 'prebuilds' or not path.name.startswith(('darwin-','linux-','win32-','android-','freebsd-')):return False
+    system={'windows':'win32','darwin':'darwin','linux':'linux'}.get(platform.system().lower())
+    arch={'amd64':'x64','x86_64':'x64','aarch64':'arm64','arm64':'arm64'}.get(platform.machine().lower())
+    return bool(system and arch and path.name != f'{system}-{arch}')
+
+
 def archive_runtime(source: Path, destination: Path):
     source=source.resolve();destination.parent.mkdir(parents=True,exist_ok=True)
     with tarfile.open(destination,'w:gz',dereference=False) as output:
@@ -22,6 +30,7 @@ def archive_runtime(source: Path, destination: Path):
             for item in os.scandir(directory):
                 src=Path(item.path);relative=src.relative_to(source)
                 if item.name in {'.git','.agents','.cache','__pycache__','.dsh-home-test'} or item.name=='.env':continue
+                if _other_prebuild(src):continue
                 info=src.lstat()
                 linked=src.is_symlink() or bool(getattr(info,'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0))
                 entry=tarfile.TarInfo(relative.as_posix());entry.mode=stat.S_IMODE(info.st_mode)
@@ -62,6 +71,7 @@ def stage(source: Path, destination: Path):
                 src=Path(entry.path);relative=src.relative_to(source);dest=output/relative
                 if entry.name in {'.git','.agents','.cache','__pycache__','.dsh-home-test'} or entry.name=='.env':
                     continue
+                if _other_prebuild(src):continue
                 info=src.lstat()
                 linked=src.is_symlink() or bool(getattr(info,'st_file_attributes',0) & getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0))
                 if linked:

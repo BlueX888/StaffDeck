@@ -46,3 +46,18 @@ def test_windows_payload_can_move_before_it_is_installed(tmp_path):
     source.rename(tmp_path/'old-source')
     assert (cache/'node_modules/dep/index.js').read_text()=='dependency'
     assert install_runtime(tmp_path/'installed/harness-engine.tar.gz',tmp_path/'user-data')==cache
+
+
+def test_native_payload_omits_prebuilds_for_other_architectures(tmp_path,monkeypatch):
+    import tarfile
+    source=tmp_path/'source';(source/'apps/cli/lib').mkdir(parents=True)
+    (source/'apps/cli/lib/bin.js').write_text('runtime')
+    for arch in ('darwin-arm64','darwin-x64'):
+        p=source/'packages/pty/prebuilds'/arch/'pty.node';p.parent.mkdir(parents=True);p.write_text(arch)
+    monkeypatch.setattr(bundle.platform,'system',lambda:'Darwin')
+    monkeypatch.setattr(bundle.platform,'machine',lambda:'arm64')
+    archive=tmp_path/'runtime.tar.gz';bundle.archive_runtime(source,archive)
+    with tarfile.open(archive) as payload:
+        names=payload.getnames()
+    assert any('darwin-arm64/pty.node' in name for name in names)
+    assert not any('darwin-x64' in name for name in names)

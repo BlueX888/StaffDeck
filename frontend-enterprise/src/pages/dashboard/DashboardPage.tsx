@@ -47,7 +47,7 @@ import type {
   SkillRead,
   ToolRead,
 } from '../../types';
-import { isTeamScope, readEmployeeScope } from '../../lib/agent-scope-storage';
+import { persistSharedAgentScope, isTeamScope, readEmployeeScope } from '../../lib/agent-scope-storage';
 
 const ENTERPRISE_AGENT_STORAGE_KEY = 'ultrarag_enterprise_agent_scope';
 const PANEL_LABELS: Record<string, string> = {
@@ -124,7 +124,7 @@ export default function DashboardPage({
               || '';
           if (next) {
             switchingAgent = true;
-            window.localStorage.setItem(ENTERPRISE_AGENT_STORAGE_KEY, next);
+            persistSharedAgentScope(next);
             window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', { detail: { agentId: next } }));
             setAgentId(next);
             return;

@@ -143,7 +143,7 @@ def initialize_defaults(db, manifest=None):
     db.add(M.Tenant(id=tenant_id, name=manifest['name']))
     db.add(M.PersonaConfig(tenant_id=tenant_id, system_prompt=(manifest.get('resources') or {}).get('persona_prompt', '')))
     if not external_auth:
-        legacy = json.loads(secrets_file.read_text()) if secrets_file.is_file() else {}
+        legacy = json.loads(secrets_file.read_text(encoding='utf-8')) if secrets_file.is_file() else {}
         password = os.environ.get('STAFFDECK_INITIAL_ADMIN_PASSWORD') or legacy.get('admin_password') or 'admin'
         db.add(M.User(id=admin_id, tenant_id=tenant_id, username='admin', display_name='Administrator',
                       role='admin', password_hash=hash_password(password)))

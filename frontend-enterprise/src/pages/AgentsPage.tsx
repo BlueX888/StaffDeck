@@ -188,7 +188,7 @@ export default function AgentsPage({
         const nextAgent = employees.find((item) => item.id !== row.id && item.status === 'active')
           || employees.find((item) => item.id !== row.id);
         if (nextAgent) {
-          window.localStorage.setItem(ENTERPRISE_AGENT_STORAGE_KEY, nextAgent.id);
+          persistSharedAgentScope(nextAgent.id);
           window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', { detail: { agentId: nextAgent.id } }));
         } else {
           window.localStorage.removeItem(ENTERPRISE_AGENT_STORAGE_KEY);

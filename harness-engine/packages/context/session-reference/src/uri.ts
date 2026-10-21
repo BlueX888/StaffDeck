@@ -68,21 +68,49 @@ export interface ParsedSessionReferenceText {
  */
 export function parseSessionReferenceText(text: string): ParsedSessionReferenceText {
   const references: SessionReferenceInput[] = []
-  const pattern = /@\[((?:\\.|[^\\\]])*)\]\((dsh-session:[^\s)]*)\)|(dsh-session:[A-Za-z0-9_-]+)/gu
-  const rendered = text.replace(pattern, (
-    _match,
-    rawLabel: string | undefined,
-    markdownUri: string | undefined,
-    bareUri: string | undefined,
-  ) => {
-    const uri = markdownUri ?? bareUri
-    /* v8 ignore next -- the two-alternative regex always captures exactly one URI group. */
-    if (uri === undefined) throw new SessionReferenceError('session reference URI is missing', 'SESSION_REFERENCE_INVALID_REFERENCE')
-    const sessionId = decodeSessionReferenceUri(uri)
-    const label = rawLabel === undefined ? sessionId : unescapeLabel(rawLabel)
-    references.push({ sessionId, label })
-    return `@${label}`
-  })
+  const stops: number[] = []
+  for (let i = 0; i < text.length; i++) {
+    if (/[\s)]/u.test(text[i]!)) stops.push(i)
+  }
+  stops.push(text.length)
+  let stopIndex = 0
+  const plain = (start: number, end: number): string => text.slice(start, end).replace(
+    /dsh-session:[A-Za-z0-9_-]+/gu,
+    uri => {
+      const sessionId = decodeSessionReferenceUri(uri)
+      references.push({ sessionId, label: sessionId })
+      return `@${sessionId}`
+    },
+  )
+  let rendered = ''
+  let cursor = 0
+  while (cursor < text.length) {
+    const start = text.indexOf('@[', cursor)
+    if (start < 0) { rendered += plain(cursor, text.length); break }
+    rendered += plain(cursor, start)
+    let close = start + 2
+    while (close < text.length && text[close] !== ']') {
+      if (text.charCodeAt(close) === 92) {
+        if (close + 1 === text.length || /[\n\r\u2028\u2029]/u.test(text[close + 1]!)) break
+        close += 2
+      } else close++
+    }
+    const uriStart = close + 2
+    if (text[close] === ']' && text.startsWith('(dsh-session:', close + 1)) {
+      while (stops[stopIndex]! < uriStart) stopIndex++
+      const end = stops[stopIndex]!
+      if (text[end] === ')') {
+        const sessionId = decodeSessionReferenceUri(text.slice(uriStart, end))
+        const label = unescapeLabel(text.slice(start + 2, close))
+        references.push({ sessionId, label })
+        rendered += `@${label}`
+        cursor = end + 1
+        continue
+      }
+    }
+    cursor = Math.min(close + 1, text.length)
+    rendered += plain(start, cursor)
+  }
   return { text: rendered, references }
 }
 

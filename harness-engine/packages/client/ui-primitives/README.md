@@ -118,3 +118,7 @@ These limits define how the atoms behave at the edges; they are current package 
 None.
 
 </details>
+
+### Input scan safety
+
+User-text projection scans reference delimiters and trailing punctuation in linear time. This changes no logged text, model context, token budget or KV-cache behavior.

@@ -108,7 +108,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 # console=False：作为 GUI app 常驻 Dock（console=True 会加 LSBackgroundOnly 变纯后台不进 Dock）。
 # 日志由 launcher 重定向到用户数据目录，启动问题可查文件。
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="staffdeck",
+exe = EXE(pyz, a.scripts, [('X utf8', None, 'OPTION')], exclude_binaries=True, name="staffdeck",
           # Linux users need to run `staffdeck setup` from a headless terminal;
           # macOS/Windows retain their desktop-shell behavior.
           console=sys.platform == "linux", disable_windowed_traceback=False, icon=_exe_icon)
@@ -121,7 +121,7 @@ cli_analysis = Analysis(
     hiddenimports=["staffdeck_harness.cli"] + collect_submodules("staffdeck"),
     excludes=["tkinter"],
 )
-cli_exe = EXE(PYZ(cli_analysis.pure), cli_analysis.scripts, [],
+cli_exe = EXE(PYZ(cli_analysis.pure), cli_analysis.scripts, [('X utf8', None, 'OPTION')],
               exclude_binaries=True, name="staffdeck-cli", console=True)
 coll = COLLECT(exe, cli_exe, a.binaries, a.datas, cli_analysis.binaries, cli_analysis.datas,
                strip=False, upx=False, name="staffdeck")

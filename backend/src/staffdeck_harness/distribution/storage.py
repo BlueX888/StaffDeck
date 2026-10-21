@@ -92,7 +92,7 @@ def resolve_storage(root: Path, data: Path, manifest: dict, *, frozen: bool = Fa
     stored_file = data / 'installation-secrets.json'
     if stored_file.is_symlink():
         raise RuntimeError('安装密钥文件不能是符号链接。')
-    stored = json.loads(stored_file.read_text()) if stored_file.is_file() else {}
+    stored = json.loads(stored_file.read_text(encoding='utf-8')) if stored_file.is_file() else {}
     base = data if frozen else root / 'backend'
     url = os.environ.get('DATABASE_URL') or values.get('DATABASE_URL')
     if not url:
