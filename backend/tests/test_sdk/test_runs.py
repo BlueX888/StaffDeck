@@ -331,3 +331,31 @@ def test_invalid_sequence_ids_are_rejected_before_delivery(cursor):
         list(sdk.runs.events("run", last_event_id=cursor))
     with pytest.raises(ProtocolError):
         list(parse_events([f"id: {cursor}", "data: {}", ""]))
+
+
+def test_download_artifact_selects_unicode_path_and_preserves_bytes(tmp_path):
+    artifact_path = '核算/结果 #1&2.json'
+    payload = '{"total":720,"proof":"已执行"}'.encode()
+
+    def handle(request):
+        assert request.url.path == '/api/v1/runs/run/artifacts/task'
+        assert dict(request.url.params) == {'path': artifact_path}
+        return httpx.Response(200, content=payload, headers={'X-Request-ID': 'req_download'})
+
+    target = tmp_path / 'receipt.json'
+    with client(handle) as sdk:
+        result = sdk.runs.download_artifact('run', 'task', str(target), artifact_path=artifact_path)
+    assert target.read_bytes() == payload
+    assert result.data == {'path': str(target), 'bytes': len(payload)}
+    assert result.request_id == 'req_download'
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['receipt.json']
+
+
+def test_download_artifact_rejection_cleans_partial_file(tmp_path):
+    target = tmp_path / 'receipt.json'
+    with (
+        client(lambda _: httpx.Response(404, json={'code': 'ARTIFACT_NOT_FOUND'})) as sdk,
+        pytest.raises(APIError),
+    ):
+        sdk.runs.download_artifact('run', 'task', str(target), artifact_path='missing.json')
+    assert list(tmp_path.iterdir()) == []

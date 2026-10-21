@@ -100,10 +100,14 @@ def test_artifact_download_does_not_publish_partial_or_overwrite(tmp_path):
                    transport=httpx.MockTransport(lambda request: httpx.Response(
                        200, content=b"artifact bytes", headers={"X-Request-ID": "artifact-read"},
                    ))) as client:
-        result = client.runs.download_artifact("run1", "frame1", str(target))
+        result = client.runs.download_artifact(
+            "run1", "frame1", str(target), artifact_path="report.docx",
+        )
         assert result.request_id == "artifact-read" and target.read_bytes() == b"artifact bytes"
         with pytest.raises(FileExistsError):
-            client.runs.download_artifact("run1", "frame1", str(target))
+            client.runs.download_artifact(
+                "run1", "frame1", str(target), artifact_path="report.docx",
+            )
         assert target.read_bytes() == b"artifact bytes"
         assert not list(tmp_path.glob(".staffdeck-download-*"))
     class BrokenDownload(httpx.SyncByteStream):
@@ -118,7 +122,9 @@ def test_artifact_download_does_not_publish_partial_or_overwrite(tmp_path):
                    ))) as client:
         from staffdeck import TransportError
         with pytest.raises(TransportError):
-            client.runs.download_artifact("run1", "frame1", str(target))
+            client.runs.download_artifact(
+                "run1", "frame1", str(target), artifact_path="report.docx",
+            )
     assert not target.exists() and not list(tmp_path.glob(".staffdeck-download-*"))
 
 
@@ -287,9 +293,14 @@ def test_real_http_cli_resource_writes_and_sop_publication(live_cli_server):
     login = cli_call(server, "auth", "login", "--tenant-id", "cli_tenant", "--username", "member",
                      "--password-stdin", stdin="local-acceptance-password\n")
     assert login.returncode == 0, login.stderr
+    created = cli_call(server, "agent", "create", "--json", "-", stdin=json.dumps({
+        "name": "New CLI Employee", "source_mode": "blank",
+    }))
+    assert created.returncode == 0, created.stderr
+    agent_id = json.loads(created.stdout)["data"]["id"]
 
     def command(resource, method, *args, body=None):
-        argv = [resource, method, "--agent-id", "cli_employee", *args]
+        argv = [resource, method, "--agent-id", agent_id, *args]
         if body is not None:
             argv += ["--json", "-"]
         result = cli_call(server, *argv, stdin=json.dumps(body) if body is not None else "")
@@ -328,10 +339,22 @@ def test_real_http_cli_resource_writes_and_sop_publication(live_cli_server):
     valid = command("sops", "validate", "--sop-id", "cli_sop", "--draft-id", draft["id"])
     assert valid["valid"] is True
     published = command("sops", "publish", "--sop-id", "cli_sop", "--draft-id", draft["id"])
-    command("agents", "set-resources", body=[{
-        "resource_type": "skill", "resource_id": published["sop"]["id"],
-    }])
+    command("agents", "set-resources", body=[
+        {"resource_type": "skill", "resource_id": published["sop"]["id"]},
+        {"resource_type": "general_skill", "resource_id": skill["id"]},
+    ])
+    bindings = command("agents", "resources")["data"]
+    assert {(row["resource_type"], row["resource_id"]) for row in bindings} == {
+        ("skill", published["sop"]["id"]), ("general_skill", skill["id"]),
+    }
+    assert all(row["metadata"]["owner_agent_id"] == agent_id for row in bindings)
+    assert any(row["id"] == skill["id"] and row["status"] == "published"
+               for row in command("skills", "list")["data"])
     listed = command("sops", "list")
     assert any(row["skill_id"] == "cli_sop" and row["status"] == "published"
                for row in listed["data"]), "Resource updates hid the published private SOP"
+    chat = cli_call(server, "chat", "--agent-id", agent_id, "--message", "CLI")
+    assert chat.returncode == 0, chat.stderr
+    result = json.loads(chat.stdout.splitlines()[-1])["data"]
+    assert result["agent_id"] == agent_id and result["reply"] == "CLI_E2E_OK"
     assert cli_call(server, "auth", "logout").returncode == 0

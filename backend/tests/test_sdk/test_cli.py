@@ -101,6 +101,8 @@ def test_bundled_guide_needs_no_credentials_or_network(factory, monkeypatch, cap
     (["agents", "create", "--json", "/nonexistent-test-file"], ""),
     (["agents", "set-resources", "--agent-id", "a", "--json", "-"], '["not-an-object"]'),
     (["agents", "list", "--limit", "test-secret"], ""),
+    (["runs", "download-artifact", "--run-id", "r", "--task-frame-id", "t",
+      "--output-path", "result.json"], ""),
     (["--api-key", "test-secret", "agents", "list"], ""),
 ])
 def test_usage_failures_do_not_call_api(factory, monkeypatch, capsys, args, text):

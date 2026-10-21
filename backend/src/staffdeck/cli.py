@@ -89,7 +89,8 @@ _COMMANDS = {
     },
     "runs": {
         "create": "agent_id body idempotency_key?", "get": "run_id", "result": "run_id",
-        "artifacts": "run_id", "download_artifact": "run_id task_frame_id output_path",
+        "artifacts": "run_id",
+        "download_artifact": "run_id task_frame_id output_path artifact_path",
         "cancel": "run_id", "wait": "run_id timeout? poll_interval?",
         "events": "run_id last_event_id? max_reconnects?",
     },

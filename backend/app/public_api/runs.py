@@ -157,6 +157,21 @@ def _latest_artifacts(
     return artifacts[-100:]
 
 
+def _run_artifacts(db: Session, job: APIJob) -> list[dict[str, Any]]:
+    if not job.session_id:
+        return []
+    turn = db.exec(
+        select(HarnessTurnRecord).where(
+            HarnessTurnRecord.tenant_id == job.tenant_id,
+            HarnessTurnRecord.session_id == job.session_id,
+            HarnessTurnRecord.client_turn_id == job.id,
+        )
+    ).first()
+    return _latest_artifacts(
+        db, job.tenant_id, job.session_id, job.id, turn.user_message_id if turn else None,
+    )
+
+
 @register_job_handler("run")
 def execute_run(db: Session, job: APIJob) -> dict[str, Any]:
     credential, actor = _job_actor(db, job)
@@ -555,9 +570,7 @@ def list_run_artifacts(
     db: Session = Depends(get_session),
 ) -> dict:
     row = _owned_run(db, principal, run_id)
-    if not row.session_id:
-        return {"data": []}
-    return {"data": _latest_artifacts(db, row.tenant_id, row.session_id)}
+    return {"data": _run_artifacts(db, row)}
 
 
 @router.get("/runs/{run_id}/artifacts/{task_frame_id}")
@@ -578,7 +591,7 @@ def download_run_artifact(
     artifact = next(
         (
             item
-            for item in _latest_artifacts(db, row.tenant_id, row.session_id)
+            for item in _run_artifacts(db, row)
             if item.get("type") == "workspace_file"
             and str(item.get("task_frame_id") or "") == task_frame_id
             and item.get("path") == normalized

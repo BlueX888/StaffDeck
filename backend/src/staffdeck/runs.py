@@ -65,7 +65,9 @@ class Runs(Resource):
     def artifacts(self, run_id: str) -> APIResponse:
         return self._client.request("GET", f"runs/{segment(run_id)}/artifacts")
 
-    def download_artifact(self, run_id: str, task_frame_id: str, output_path: str) -> APIResponse:
+    def download_artifact(
+        self, run_id: str, task_frame_id: str, output_path: str, *, artifact_path: str,
+    ) -> APIResponse:
         """Stream to an explicit local filename; publish atomically without overwrite."""
         path = self._client._path(
             f"runs/{segment(run_id)}/artifacts/{segment(task_frame_id)}"
@@ -75,7 +77,9 @@ class Runs(Resource):
         size = 0
         try:
             with os.fdopen(fd, "wb") as output:
-                with self._client._http.stream("GET", path) as response:
+                with self._client._http.stream(
+                    "GET", path, params={"path": artifact_path},
+                ) as response:
                     if not response.is_success:
                         response.read()
                     self._client._check_response(response)

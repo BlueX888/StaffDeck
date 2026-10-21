@@ -72,3 +72,106 @@ API Key 可通过 `STAFFDECK_API_KEY` 注入，服务地址通过 `STAFFDECK_BAS
 
 等待超时、断网或 Ctrl+C 不会自动取消远程执行。按提示保留的运行编号查询状态，
 确认结果后再决定是否重试；不要重复提交可能已执行的业务操作。
+
+## 新建员工、技能和 SOP
+
+下面的操作在已登录的实例中创建私有资源。将返回值中的 ID 复制到变量，
+不要把展示名称作为 ID。资源命令输出 JSON，正文通过 UTF-8 文件或 stdin 传入。
+
+```sh
+printf '{"name":"核算助手","source_mode":"blank"}' | staffdeck agent create --json -
+AGENT_ID='从上一步 data.id 复制'
+```
+
+将下面内容保存为 `skill.json`。这是一个带实际 Python 脚本的技能包：
+
+```json
+{
+  "name": "核算技能",
+  "slug": "cli-calculator",
+  "status": "draft",
+  "files": [
+    {
+      "path": "SKILL.md",
+      "content": "---\nname: 核算技能\ndescription: 执行脚本计算三个整数a*b+c\n---\n实际运行 scripts/calculate.py，参数依次为a b c，返回脚本标准输出，不要口算。"
+    },
+    {
+      "path": "scripts/calculate.py",
+      "content": "import json,sys\na,b,c=map(int,sys.argv[1:4])\nprint(json.dumps({'total':a*b+c}))\n"
+    }
+  ]
+}
+```
+
+```sh
+staffdeck skill create --agent-id "$AGENT_ID" --json skill.json
+SKILL_ID='从上一步 data.id 复制'
+staffdeck skill publish --agent-id "$AGENT_ID" --slug cli-calculator
+```
+
+将下面内容保存为 `sop.json`，把两处 `SKILL_ID` 替换为刚创建的技能 ID：
+
+```json
+{
+  "skill_id": "cli_calculation_sop",
+  "name": "核算流程",
+  "version": "1.0.0",
+  "description": "调用核算技能计算a*b+c并交付结果",
+  "trigger_intents": ["执行核算流程"],
+  "nodes": [{
+    "node_id": "calculate",
+    "type": "action",
+    "name": "执行核算",
+    "instruction": "从请求中提取a,b,c，必须执行核算技能脚本并返回真实结果。",
+    "capability_refs": {
+      "general_skill_ids": ["SKILL_ID"],
+      "required_general_skill_ids": ["SKILL_ID"]
+    }
+  }, {
+    "node_id": "deliver",
+    "type": "respond",
+    "name": "交付结果",
+    "instruction": "依据上一节点的真实执行结果，返回total，不要重新计算。"
+  }],
+  "edges": [{"source_node_id":"calculate","next_node_id":"deliver"}],
+  "start_node_id": "calculate",
+  "terminal_node_ids": ["deliver"]
+}
+```
+
+```sh
+staffdeck sop create --agent-id "$AGENT_ID" --json sop.json
+DRAFT_ID='从上一步 data.id 复制'
+staffdeck sop validate --agent-id "$AGENT_ID" --sop-id cli_calculation_sop --draft-id "$DRAFT_ID"
+# 确认 data.valid 为 true 后发布：
+staffdeck sop publish --agent-id "$AGENT_ID" --sop-id cli_calculation_sop --draft-id "$DRAFT_ID"
+SOP_RESOURCE_ID='从发布响应 data.sop.id 复制'
+```
+
+创建技能、发布 SOP 会自动绑定到目标员工。手动调整绑定时，
+`set-resources` 替换员工的**完整资源列表**，需保留所有要继续使用的资源。
+SOP 的 `resource_type` 是 `skill`，绑定用发布响应中的 `data.sop.id`；
+`--sop-id` 用的是 card 的 `skill_id`（本例为 `cli_calculation_sop`），两者不能混用。
+通用技能的 `resource_type` 是 `general_skill`。
+
+```sh
+staffdeck agent resources --agent-id "$AGENT_ID"
+printf '[{"resource_type":"general_skill","resource_id":"%s"},{"resource_type":"skill","resource_id":"%s"}]' \
+  "$SKILL_ID" "$SOP_RESOURCE_ID" | staffdeck agent set-resources --agent-id "$AGENT_ID" --json -
+staffdeck chat --agent "$AGENT_ID" "执行核算流程，a=37,b=19,c=17"
+```
+
+预期核算结果为 `720`。真实模型验收还应检查 `runs result` 的 `tool_calls`、
+`task_results`，确认脚本成功执行、目标 SOP 完成，而不只核对回复文字。
+使用 `staffdeck --output json chat --agent-id "$AGENT_ID" --message "..."`
+可同时获得运行回执和最终结构化结果。
+
+需要下载生成的文件时，先从产物列表读取 `task_frame_id` 和 `path`：
+
+```sh
+staffdeck runs artifacts --run-id RUN_ID
+staffdeck runs download-artifact --run-id RUN_ID --task-frame-id TASK_FRAME_ID \
+  --artifact-path '产物列表中的 path' --output-path ./result.json
+```
+
+`--artifact-path` 是服务端产物路径，`--output-path` 是本地保存位置；已有本地文件不会被覆盖。
