@@ -150,11 +150,11 @@ jobs:
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "macOS" ]]; then
-            python packaging/smoke_oss.py --server packaging/out/StaffDeck.app/Contents/MacOS/staffdeck --cli packaging/out/StaffDeck.app/Contents/MacOS/staffdeck-cli
+            python packaging/smoke_oss.py --server packaging/out/StaffDeck.app/Contents/MacOS/staffdeck --cli packaging/out/StaffDeck.app/Contents/MacOS/staffdeck-cli --restart-with-cli
           elif [[ "$RUNNER_OS" == "Windows" ]]; then
-            python packaging/smoke_oss.py --server packaging/out/staffdeck/staffdeck.exe --cli packaging/out/staffdeck/staffdeck-cli.exe
+            python packaging/smoke_oss.py --server packaging/out/staffdeck/staffdeck.exe --cli packaging/out/staffdeck/staffdeck-cli.exe --restart-with-cli
           else
-            python packaging/smoke_oss.py --server packaging/out/staffdeck/staffdeck --cli packaging/out/staffdeck/staffdeck-cli
+            python packaging/smoke_oss.py --server packaging/out/staffdeck/staffdeck --cli packaging/out/staffdeck/staffdeck-cli --restart-with-cli
           fi
 
       - name: Windows general-skill smoke (python runtime)

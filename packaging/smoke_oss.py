@@ -15,6 +15,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--server', type=Path, required=True)
     parser.add_argument('--cli', type=Path, required=True)
+    parser.add_argument('--restart-with-cli', action='store_true',
+                        help='Restart persisted data using the console serve command')
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='staffdeck-native-smoke-') as temporary:
         data = Path(temporary)
@@ -27,9 +29,9 @@ def main():
         for key in ('APP_SECRET','DATABASE_URL','STAFFDECK_API_KEY','STAFFDECK_INITIAL_ADMIN_PASSWORD'):
             env.pop(key, None)
         with (data/'launcher.log').open('w') as log:
-            def start_server():
+            def start_server(executable=None):
                 print('OSS smoke: starting server', flush=True)
-                child = subprocess.Popen([str(args.server.resolve()), 'serve'], env=env,
+                child = subprocess.Popen([str((executable or args.server).resolve()), 'serve'], env=env,
                                          stdout=log, stderr=subprocess.STDOUT)
                 deadline = time.monotonic() + 300
                 while time.monotonic() < deadline:
@@ -63,7 +65,7 @@ def main():
                 out = subprocess.check_output([cli,'agent','list'],env=env,text=True,encoding='utf-8',timeout=90)
                 for name in ('IT','人事','行政','财务','法务'):assert name in out,name
                 stop_server(process)
-                process = start_server()
+                process = start_server(args.cli if args.restart_with_cli else None)
                 # The existing CLI credential must survive restart; its server-side
                 # verifier uses the persisted application signing material.
                 print('OSS smoke: saved credential after restart', flush=True)

@@ -14,6 +14,7 @@
 - 每个平台先执行 `prepare.py --without-backend` 构建前端和运行时，原生脚本再安装
   后端及本地 SDK，使用 `SKIP_FRONTEND=1` 复用已验证的前端产物。
 - 原生包同时携带桌面入口和 `staffdeck-cli`。发布检查会执行 CLI 帮助、员工列表及登录验收。
+- 重启验收从桌面入口切换到控制台的 `staffdeck serve`，使用同一数据库并验证原登录凭据。
 - 源码 ZIP 从当前公开 Git 工作树的已跟踪文件生成，附 SHA-256 校验；不包含
   `.env`、数据库、模型密钥、构建缓存、企业前端、内部模块或内部构建机协议。
 - tag 成功后将各平台安装包及源码 ZIP 上传到 Release。手工触发只上传 Actions artifacts。

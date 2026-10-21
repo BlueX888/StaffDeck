@@ -118,7 +118,10 @@ cli_analysis = Analysis(
     [str(BACKEND / "cli_launcher.py")],
     pathex=[str(BACKEND), str(BACKEND / "src")],
     datas=collect_data_files("staffdeck") + [(str(REPO / "distribution/manifest.json"), "distribution")],
-    hiddenimports=["staffdeck_harness.cli"] + collect_submodules("staffdeck"),
+    # `staffdeck serve` dynamically loads the same ASGI app as the desktop
+    # launcher. Each executable owns its PYZ, so the console also needs the
+    # complete server imports rather than only the HTTP client modules.
+    hiddenimports=hiddenimports,
     excludes=["tkinter"],
 )
 cli_exe = EXE(PYZ(cli_analysis.pure), cli_analysis.scripts, [('X utf8', None, 'OPTION')],
