@@ -18,6 +18,7 @@ def _relative(value):
 
 
 def runtime_path(archive: Path, data: Path) -> Path:
+    archive, data = archive.resolve(), data.resolve()
     expected=archive.with_suffix(archive.suffix+'.sha256').read_text(encoding='utf-8').strip()
     if not re.fullmatch(r'[a-f0-9]{64}',expected):raise ValueError('Invalid runtime checksum')
     return data/'engine-runtime'/expected[:24]
@@ -31,7 +32,7 @@ def install_runtime(archive: Path, data: Path) -> Path:
     if hashlib.sha256(archive.read_bytes()).hexdigest()!=expected:
         raise ValueError('Runtime checksum mismatch')
     with tempfile.TemporaryDirectory(prefix='install-',dir=cache) as temporary:
-        output=Path(temporary)/'runtime';output.mkdir();links=[]
+        output=(Path(temporary)/'runtime').resolve();output.mkdir();links=[]
         with tarfile.open(archive,'r:gz') as source:
             members=source.getmembers()
             if len(members)>250000 or sum(m.size for m in members)>5*1024**3:
@@ -40,7 +41,7 @@ def install_runtime(archive: Path, data: Path) -> Path:
                 relative=_relative(member.name)
                 if member.issym():
                     resolved=(output/relative.parent/member.linkname).resolve()
-                    if not resolved.is_relative_to(output):raise ValueError('Runtime link escapes payload')
+                    if not resolved.is_relative_to(output):raise ValueError('Runtime link escapes payload: '+member.name)
                     links.append((relative,resolved.relative_to(output)))
                 elif member.isfile() or member.isdir():
                     source.extract(member,output,filter='data')

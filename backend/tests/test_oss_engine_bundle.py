@@ -61,3 +61,19 @@ def test_native_payload_omits_prebuilds_for_other_architectures(tmp_path,monkeyp
         names=payload.getnames()
     assert any('darwin-arm64/pty.node' in name for name in names)
     assert not any('darwin-x64' in name for name in names)
+
+
+def test_runtime_cache_accepts_a_symlinked_data_directory(tmp_path):
+    from staffdeck_harness.distribution.runtime_bundle import install_runtime
+    source=tmp_path/'source';(source/'apps/cli/lib').mkdir(parents=True)
+    (source/'apps/cli/lib/bin.js').write_text('runtime')
+    (source/'packages/dep').mkdir(parents=True);(source/'packages/dep/index.js').write_text('dependency')
+    (source/'node_modules').mkdir();real=tmp_path/'real';real.mkdir()
+    try:
+        (source/'node_modules/dep').symlink_to('../packages/dep',target_is_directory=True)
+        (tmp_path/'alias').symlink_to(real,target_is_directory=True)
+    except OSError:pytest.skip('Host cannot create symlinks')
+    archive=tmp_path/'runtime.tar.gz';bundle.archive_runtime(source,archive)
+    cache=install_runtime(archive,tmp_path/'alias/data')
+    assert cache.is_relative_to(real)
+    assert (cache/'node_modules/dep/index.js').read_text()=='dependency'
