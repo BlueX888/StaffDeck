@@ -123,3 +123,19 @@ def test_external_signing_key_is_not_duplicated_into_a_plaintext_cache(tmp_path,
         if path.is_file():
             assert b'external-signing-key-for-this-fixture' not in path.read_bytes()
             assert b'initial-password-fixture' not in path.read_bytes()
+
+
+def test_empty_signing_environment_uses_persisted_random_material(tmp_path,monkeypatch):
+    import os
+
+    from staffdeck_harness.distribution import bootstrap
+    data=tmp_path/'data';data.mkdir()
+    monkeypatch.setenv('ULTRARAG_DATA_DIR',str(data))
+    monkeypatch.setenv('APP_SECRET','')
+    monkeypatch.setattr(bootstrap,'load_manifest',lambda:{
+        'assembly':{'security_profile':'OSS_LOCAL'},'installation':{},'version':'0.6.0'})
+    bootstrap.configure_environment()
+    value=os.environ['APP_SECRET']
+    assert len(value)==64 and len((data/'.installation-seed').read_bytes())==32
+    bootstrap.configure_environment()
+    assert os.environ['APP_SECRET']==value

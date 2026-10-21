@@ -52,8 +52,8 @@ def configure_environment():
     data = user_data_dir()
     storage = resolve_storage(distribution_root(), data, manifest,
                               frozen=bool(getattr(sys, 'frozen', False)))
-    os.environ.setdefault('ULTRARAG_DOTENV', storage['dotenv'])
-    os.environ.setdefault('APP_SECRET', storage['app_secret'])
+    os.environ['ULTRARAG_DOTENV'] = storage['dotenv']
+    os.environ['APP_SECRET'] = storage['app_secret']
     os.environ['DATABASE_URL'] = storage['database_url']
     os.environ.setdefault('DEMO_SEED_ENABLED', 'false')
     os.environ.setdefault('STAFFDECK_VERSION', manifest.get('version', '0.6.0'))
@@ -68,12 +68,13 @@ def configure_environment():
         engine_roots.append(executable.parent / 'harness-engine')
         if sys.platform == 'darwin':
             engine_roots.append(executable.parent.parent / 'Resources/harness-engine')
+    archive_root = None
     if getattr(sys, 'frozen', False) and os.name == 'nt':
         archive = Path(sys.executable).resolve().parent / 'harness-engine.tar.gz'
         if archive.is_file():
             from .runtime_bundle import runtime_path
-            engine_roots.insert(0, runtime_path(archive, data))
-    engine = next((path for path in engine_roots if (path / 'apps/cli/lib/bin.js').is_file()), engine_roots[0])
+            archive_root = runtime_path(archive, data)
+    engine = archive_root or next((path for path in engine_roots if (path / 'apps/cli/lib/bin.js').is_file()), engine_roots[0])
     os.environ.setdefault('HARNESS_V3_ROOT', str(engine))
     os.environ.setdefault('HARNESS_V3_HOME', str(data / 'engine-home'))
     services = manifest.get('deployment', {}).get('services', [])

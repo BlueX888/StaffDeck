@@ -29,6 +29,8 @@ def test_fresh_oss_admin_and_five_owned_employees_are_initialized_once(tmp_path,
     monkeypatch.setenv('ULTRARAG_DATA_DIR', str(tmp_path / 'data'))
     monkeypatch.setenv('ULTRARAG_DOTENV', str(tmp_path / 'missing.env'))
     monkeypatch.delenv('STAFFDECK_INITIAL_ADMIN_PASSWORD', raising=False)
+    monkeypatch.delenv('APP_SECRET', raising=False)
+    monkeypatch.delenv('DATABASE_URL', raising=False)
     configure_environment()
     assert len((tmp_path / 'data/.installation-seed').read_bytes()) == 32
     assert not (tmp_path / 'data/installation-secrets.json').exists()
