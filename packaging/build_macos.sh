@@ -103,7 +103,11 @@ PY
 }
 
 echo "==> [1/5] 构建前端"
-npm --prefix frontend-enterprise run build
+if [ "${SKIP_FRONTEND:-0}" = "1" ]; then
+  test -f frontend-enterprise/dist/index.html || { echo "缺少预构建前端" >&2; exit 1; }
+else
+  npm --prefix frontend-enterprise run build
+fi
 
 echo "==> [2/5] 后端 venv + 运行依赖 + 打包工具"
 cd backend
@@ -145,12 +149,16 @@ if ! .venv/bin/python -c "import AppKit, WebKit" >/dev/null 2>&1; then
 fi
 
 echo "==> [3/5] PyInstaller 打包（spec 在 macOS 下同时产出 StaffDeck.app）"
+.venv/bin/python ../packaging/distribution/install_dependencies.py
 .venv/bin/pyinstaller ../packaging/ultrarag.spec --noconfirm \
   --distpath ../packaging/out --workpath ../packaging/build
 cd "$REPO"
 APP="packaging/out/StaffDeck.app"
 test -d "$APP" || { echo "PyInstaller 未产出 $APP"; exit 1; }
+python3 packaging/bundle_engine.py "$APP/Contents/Resources/harness-engine"
 "$APP/Contents/MacOS/staffdeck" --packaging-smoke
+"$APP/Contents/MacOS/staffdeck-cli" --version
+"$APP/Contents/MacOS/staffdeck-cli" guide >/dev/null
 
 echo "==> [4/5] 附带 python 运行时（放 .app/Contents/Resources/runtime）"
 # 注意：runtime 必须放 Resources 而非 MacOS。放 MacOS 时 codesign 会把 runtime 里
