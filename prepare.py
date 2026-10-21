@@ -12,8 +12,30 @@ if not (ROOT / 'distribution/manifest.json').is_file():
     ROOT = ROOT.parents[1]  # invoked from packaging/distribution in a prepared checkout
 
 
+def windows_command(args):
+    args=[str(arg) for arg in args]
+    name=Path(args[0]).stem.lower()
+    if name not in {'npm','pnpm','corepack'}:
+        return args
+    node=shutil.which('node')
+    shim=shutil.which(args[0])
+    if not node or not shim:
+        raise RuntimeError('Node.js and the selected package manager must be installed')
+    actual=Path(subprocess.check_output([node,'-p','process.execPath'],text=True).strip())
+    bases=[Path(shim).parent,actual.parent]
+    relative={'npm':('npm/bin/npm-cli.js',),
+              'pnpm':('pnpm/bin/pnpm.cjs','corepack/dist/pnpm.js'),
+              'corepack':('corepack/dist/corepack.js',)}[name]
+    script=next((base/'node_modules'/rel for base in bases for rel in relative
+                 if (base/'node_modules'/rel).is_file()),None)
+    if script is None:
+        raise RuntimeError(f'Cannot locate the installed {name} JavaScript entry point')
+    return [str(actual),str(script),*args[1:]]
+
+
 def run(args, cwd=ROOT, env=None):
-    subprocess.run([str(arg) for arg in args], cwd=cwd, env=env, check=True)
+    command=windows_command(args) if os.name=='nt' else [str(arg) for arg in args]
+    subprocess.run(command,cwd=cwd,env=env,check=True)
 
 
 def package_manager(root):

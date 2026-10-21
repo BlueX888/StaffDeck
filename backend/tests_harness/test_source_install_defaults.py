@@ -53,3 +53,14 @@ def test_source_database_is_in_installation_data_directory(tmp_path, monkeypatch
     bootstrap.configure_environment()
     assert os.environ['APP_SECRET'] == secret
     assert (tmp_path / '.installation-seed').stat().st_mode & 0o777 == 0o600
+
+
+def test_windows_package_manager_shims_execute_through_node_without_a_shell(tmp_path,monkeypatch):
+    module=installer()
+    node=tmp_path/'node/node.exe';node.parent.mkdir()
+    shim=tmp_path/'global/npm.cmd';shim.parent.mkdir()
+    script=shim.parent/'node_modules/npm/bin/npm-cli.js'
+    script.parent.mkdir(parents=True);script.write_text('npm entry fixture')
+    monkeypatch.setattr(module.shutil,'which',lambda name:str(node if name=='node' else shim))
+    monkeypatch.setattr(module.subprocess,'check_output',lambda *a,**kw:str(node)+'\n')
+    assert module.windows_command(['npm','ci'])==[str(node),str(script),'ci']
