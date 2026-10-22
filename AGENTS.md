@@ -8,7 +8,8 @@ StaffDeck combines a Python 3.11+ FastAPI service with a React/TypeScript consol
 
 - `python3 -m venv backend/.venv && backend/.venv/bin/python -m pip install -e "backend[dev]"` installs backend and test dependencies.
 - `npm --prefix frontend-enterprise ci` installs the locked frontend dependencies.
-- `scripts/dev_up.sh --detach` builds the frontend and starts the single-port app; use `scripts/dev_status.sh` and `scripts/dev_down.sh` to inspect or stop it.
+- `python3 prepare.py --no-cli-link` prepares the OSS frontend, Harness v3 runtime, and local Python SDK after installing or updating source; Python dependencies alone do not produce the engine entry point.
+- `scripts/dev_up.sh --detach` prepares missing OSS Harness runtime/SDK artifacts, builds the frontend and starts the single-port app. Preparation completes before stopping existing services; use `scripts/dev_status.sh` and `scripts/dev_down.sh` to inspect or stop it.
 - `backend/.venv/bin/python -m pytest backend/tests` runs the backend suite.
 - `backend/.venv/bin/ruff check backend` checks Python style.
 - `npm --prefix frontend-enterprise test` runs Vitest; `npm --prefix frontend-enterprise run build` performs TypeScript checking and the production Vite build.

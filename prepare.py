@@ -44,6 +44,14 @@ def package_manager(root):
     if (root / 'package-lock.json').is_file():
         return ['npm']
     if (root / 'pnpm-lock.yaml').is_file():
+        metadata = root / 'package.json'
+        manager = ''
+        if metadata.is_file():
+            manager = json.loads(metadata.read_text(encoding='utf-8')).get('packageManager', '')
+        if manager.startswith('pnpm@'):
+            # npm caches the project's pinned pnpm without requiring a global
+            # installation, changing global versions, or relying on Corepack.
+            return ['npm', 'exec', '--yes', f'--package={manager}', '--', 'pnpm']
         return [shutil.which('pnpm')] if shutil.which('pnpm') else ['corepack', 'pnpm']
     return ['npm']
 

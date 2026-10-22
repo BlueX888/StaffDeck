@@ -37,7 +37,9 @@ jobs:
           backend/tests/test_oss_public_boundary.py backend/tests/test_oss_engine_bundle.py
           backend/tests/test_macho_candidates.py
           backend/tests/test_macos_packaging_smoke.py
+          backend/tests/test_dev_scripts.py backend/tests/test_oss_preparation.py
           backend/tests_harness/test_capability_host_hardening.py
+          backend/tests_harness/test_worker_config_preparation.py
       - name: Checkout the last desktop release for upgrade acceptance
         uses: actions/checkout@v7
         with:

@@ -115,7 +115,6 @@ See [installation and upgrades](INSTALL.md) and the [CLI guide](CLI.md).
 Use Python 3.11+ and Node.js **22.19+ within 22.x, or 24+**:
 
 ```sh
-corepack enable
 python3 prepare.py
 staffdeck serve
 # In another terminal:
