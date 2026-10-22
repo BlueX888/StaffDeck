@@ -38,6 +38,7 @@ jobs:
           backend/tests/test_macho_candidates.py
           backend/tests/test_macos_packaging_smoke.py
           backend/tests_harness/test_capability_host_hardening.py
+          backend/tests_harness/test_worker_config_preparation.py
       - name: Checkout the last desktop release for upgrade acceptance
         uses: actions/checkout@v7
         with:

@@ -53,6 +53,34 @@ Windows 使用 `python prepare.py` 和 `backend\.venv\Scripts\python.exe launch.
 需要回退时：停止新版，恢复升级前的**数据库备份、配置和密钥**，再启动对应旧版本。
 不要让两个不同版本同时写同一个数据库。已有附件文件不会被迁移程序移动或删除。
 
+### 升级后提示 Harness v3 engine not built
+
+`harness-engine/apps/cli/lib/bin.js missing` 表示运行时尚未构建成功。
+这个文件是构建产物，不在 Git 和源码压缩包中。只执行 `git pull`、安装 Python
+依赖，或用旧的 `scripts/dev_up.sh` 构建前端，都不会生成它。
+
+先停止反复重启失败的应用，在源码根目录执行完整准备流程：
+
+```sh
+cd /path/to/StaffDeck
+node --version
+# Node 需要 22.x >=22.19，或 >=24；pnpm 需要 11.7。
+npm install --global pnpm@11.7.0
+python3 prepare.py --no-cli-link
+```
+
+准备命令成功后，核对启动文件并按原来的服务方式重新启动：
+
+```sh
+test -f harness-engine/apps/cli/lib/bin.js
+backend/.venv/bin/python launch.py
+```
+
+`prepare.py` 同时构建前端、Harness 运行时并安装本地 Python SDK；
+它不初始化或重置业务数据库。保留原数据目录、`.env` 和签名密钥，
+准备过程中若有错误，应先解决该错误，再启动服务。
+报错若指向别的引擎目录，还需核对原有 `HARNESS_V3_ROOT` 配置是否指向预期安装。
+
 ## Docker
 
 ```sh

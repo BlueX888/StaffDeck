@@ -85,7 +85,22 @@ class HarnessV3WorkerConfig:
 
     def validate(self) -> None:
         if not self.bin_js.is_file():
-            raise EngineUnavailable(f"Harness v3 engine not built: {self.bin_js} missing (run pnpm build:lib in {self.harness_v3_root})")
+            source_root = self.harness_v3_root.parent
+            if (
+                self.harness_v3_root.name == "harness-engine"
+                and (source_root / "distribution" / "manifest.json").is_file()
+                and (source_root / "prepare.py").is_file()
+            ):
+                recovery = (
+                    f"run python3 prepare.py --no-cli-link from {source_root}; "
+                    "this prepares the OSS frontend, Harness runtime and Python SDK. "
+                    "See INSTALL.md for upgrade instructions"
+                )
+            else:
+                recovery = f"run pnpm build:lib in {self.harness_v3_root}"
+            raise EngineUnavailable(
+                f"Harness v3 engine not built: {self.bin_js} missing ({recovery})"
+            )
         if not self.sdk_src.is_dir():
             raise EngineUnavailable(f"Harness v3 engine SDK not found at {self.sdk_src}")
         if shutil.which(self.node_bin) is None:
