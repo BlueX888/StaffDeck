@@ -2,12 +2,12 @@
 
 ## 全新源码安装
 
-需要 Python 3.11+、Node.js 22.x ≥22.19 或 ≥24，以及 pnpm 11.7（可由 Corepack 管理）。
+需要 Python 3.11+、Node.js 22.x ≥22.19 或 ≥24，以及 npm。
+准备流程通过 npm 缓存调用项目锁定的 pnpm，无需全局安装 pnpm 或启用 Corepack。
 
 ```sh
 git clone https://github.com/OpenBMB/StaffDeck.git
 cd StaffDeck
-corepack enable
 python3 prepare.py
 staffdeck serve
 ```
@@ -23,10 +23,15 @@ Windows 使用 `python prepare.py` 和 `backend\.venv\Scripts\python.exe launch.
 升级会保留原账号密码、员工、资源绑定、SOP 版本、知识库、会话、定时任务和附件。
 默认员工只初始化一次，已有数据库不会重新导入示例或重置密码。
 
-1. 停止原应用，保留整个数据目录、原 `.env` 和 `APP_SECRET`，先额外备份。
+1. 先备份整个数据目录、原 `.env` 和 `APP_SECRET`。使用 `dev_up.sh` 管理的服务
+   可保持运行，脚本会在准备成功后停止原进程并启动新版。
 2. 在同一源码位置更新；原 `backend/.env` 和 `backend/skill_agent_loop.db` 会被识别，
    SQLite 相对路径继续按旧版的 backend 目录解析，不依赖当前终端位置。
-3. 重新运行 `python3 prepare.py`，再启动应用。启动前会校验已有模型密钥能否解密，
+3. 使用 `scripts/dev_up.sh --detach` 启动：缺少 Harness v3 构建产物、依赖或 Python SDK 时，
+   会自动构建前端与引擎并安装本地 SDK；已有产物时跳过引擎重建。准备失败会退出，
+   保留仍在运行的原服务。Windows 可使用 `scripts/dev_up.ps1 --detach`。
+   使用 `launch.py` 或自行管理的 uvicorn 服务时，仍需先运行 `python3 prepare.py`。
+   启动前会校验已有模型密钥能否解密，
    并在数据目录的 `backups/pre-upgrade-*.db` 创建权限受限的 SQLite 备份。
 4. 使用原账号密码登录，核对员工、会话、知识库及定时任务；不要把原密码改成新装默认密码。
 
@@ -56,16 +61,16 @@ Windows 使用 `python prepare.py` 和 `backend\.venv\Scripts\python.exe launch.
 ### 升级后提示 Harness v3 engine not built
 
 `harness-engine/apps/cli/lib/bin.js missing` 表示运行时尚未构建成功。
-这个文件是构建产物，不在 Git 和源码压缩包中。只执行 `git pull`、安装 Python
-依赖，或用旧的 `scripts/dev_up.sh` 构建前端，都不会生成它。
+这个文件是构建产物，不在 Git 和源码压缩包中。只执行 `git pull` 或安装 Python
+依赖不会生成它。使用本版 `scripts/dev_up.sh --detach` 会自动检测并完成准备，
+再启动服务；前端或运行时准备失败时，会在停止原服务前退出。
 
-先停止反复重启失败的应用，在源码根目录执行完整准备流程：
+若使用旧版启动脚本或自行管理的服务，可在源码根目录手动执行完整准备流程：
 
 ```sh
 cd /path/to/StaffDeck
 node --version
-# Node 需要 22.x >=22.19，或 >=24；pnpm 需要 11.7。
-npm install --global pnpm@11.7.0
+# Node 需要 22.x >=22.19，或 >=24；pnpm 由准备流程按项目锁定版本调用。
 python3 prepare.py --no-cli-link
 ```
 

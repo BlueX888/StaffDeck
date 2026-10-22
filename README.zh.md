@@ -114,7 +114,6 @@ PowerShell 运行 .\scripts\dev_up.ps1 --detach；验证 /api/health 和
 需要 Python 3.11+、Node.js **22.x ≥22.19，或 ≥24**。
 
 ```sh
-corepack enable
 python3 prepare.py
 staffdeck serve
 # 另开终端：
